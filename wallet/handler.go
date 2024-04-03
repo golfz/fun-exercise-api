@@ -47,12 +47,15 @@ func (h *Handler) WalletHandler(c echo.Context) error {
 	// filter by wallet_type
 	if walletType := c.QueryParam("wallet_type"); walletType != "" {
 		filter.WalletType = walletType
-		log.Printf("filter by wallet_type=%s\n", walletType)
+		if !IsWalletTypeValid(walletType) {
+			return c.JSON(http.StatusBadRequest, Err{Message: "invalid wallet_type"})
+		}
 	}
 
 	wallets, err := h.store.GetWallets(filter)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, Err{Message: err.Error()})
+		log.Printf("error: %v\n", err)
+		return c.JSON(http.StatusInternalServerError, Err{Message: "error getting wallets"})
 	}
 	return c.JSON(http.StatusOK, wallets)
 }
@@ -60,11 +63,13 @@ func (h *Handler) WalletHandler(c echo.Context) error {
 func (h *Handler) CreateWalletHandler(c echo.Context) error {
 	wallet := Wallet{}
 	if err := c.Bind(&wallet); err != nil {
-		return c.JSON(http.StatusBadRequest, Err{Message: err.Error()})
+		log.Printf("error: %v\n", err)
+		return c.JSON(http.StatusBadRequest, Err{Message: "invalid request"})
 	}
 
 	if err := h.store.CreateWallet(&wallet); err != nil {
-		return c.JSON(http.StatusInternalServerError, Err{Message: err.Error()})
+		log.Printf("error: %v\n", err)
+		return c.JSON(http.StatusInternalServerError, Err{Message: "error creating wallet"})
 	}
 	return c.JSON(http.StatusCreated, wallet)
 }
@@ -72,11 +77,13 @@ func (h *Handler) CreateWalletHandler(c echo.Context) error {
 func (h *Handler) UpdateWalletHandler(c echo.Context) error {
 	wallet := Wallet{}
 	if err := c.Bind(&wallet); err != nil {
-		return c.JSON(http.StatusBadRequest, Err{Message: err.Error()})
+		log.Printf("error: %v\n", err)
+		return c.JSON(http.StatusBadRequest, Err{Message: "invalid request"})
 	}
 
 	if err := h.store.UpdateWallet(&wallet); err != nil {
-		return c.JSON(http.StatusInternalServerError, Err{Message: err.Error()})
+		log.Printf("error: %v\n", err)
+		return c.JSON(http.StatusInternalServerError, Err{Message: "error updating wallet"})
 	}
 	return c.JSON(http.StatusOK, wallet)
 }
@@ -107,12 +114,15 @@ func (h *Handler) UserWalletHandler(c echo.Context) error {
 	// filter by wallet_type
 	if walletType := c.QueryParam("wallet_type"); walletType != "" {
 		filter.WalletType = walletType
-		log.Printf("filter by wallet_type=%s\n", walletType)
+		if !IsWalletTypeValid(walletType) {
+			return c.JSON(http.StatusBadRequest, Err{Message: "invalid wallet_type"})
+		}
 	}
 
 	wallets, err := h.store.GetWallets(filter)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, Err{Message: err.Error()})
+		log.Printf("error: %v\n", err)
+		return c.JSON(http.StatusInternalServerError, Err{Message: "error getting wallets"})
 	}
 	return c.JSON(http.StatusOK, wallets)
 }
@@ -123,11 +133,14 @@ func (h *Handler) DeleteUserWalletHandler(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, Err{Message: "id is required"})
 	}
 
-	if userID, err := strconv.Atoi(id); err == nil {
-		if err := h.store.DeleteWallet(userID); err != nil {
-			return c.JSON(http.StatusInternalServerError, Err{Message: err.Error()})
-		}
+	var userID int
+	var err error
+	if userID, err = strconv.Atoi(id); err != nil {
+		return c.JSON(http.StatusBadRequest, Err{Message: "invalid user id"})
+	}
+	if err = h.store.DeleteWallet(userID); err != nil {
+		log.Printf("error: %v\n", err)
+		return c.JSON(http.StatusInternalServerError, Err{Message: "error deleting wallet"})
 	}
 	return c.NoContent(http.StatusNoContent)
-
 }

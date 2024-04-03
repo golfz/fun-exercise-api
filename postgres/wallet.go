@@ -2,7 +2,6 @@ package postgres
 
 import (
 	"database/sql"
-	"errors"
 	sq "github.com/Masterminds/squirrel"
 	"github.com/golfz/fun-exercise-api/wallet"
 	"log"
@@ -17,11 +16,6 @@ import (
 //	Balance    float64   `postgres:"balance"`
 //	CreatedAt  time.Time `postgres:"created_at"`
 //}
-
-var (
-	ErrInvalidWalletType = errors.New("invalid wallet type")
-	ErrDeleteWallet      = errors.New("unable to delete wallet")
-)
 
 func scanWalletFromRow(row *sql.Row) (wallet.Wallet, error) {
 	var w wallet.Wallet
@@ -63,9 +57,6 @@ func prepareSelectSqlWithFilter(filter wallet.Wallet) (string, []interface{}, er
 
 	// prepare filter
 	if filter.WalletType != "" {
-		if !wallet.IsWalletTypeValid(filter.WalletType) {
-			return "", nil, ErrInvalidWalletType
-		}
 		selectQuery = selectQuery.Where(sq.Eq{"wallet_type": filter.WalletType})
 	}
 	if filter.UserID != 0 {
