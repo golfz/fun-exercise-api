@@ -30,6 +30,21 @@ func (m *mockWalletStorer) Wallets(filter Wallet) ([]Wallet, error) {
 	return m.wallets, m.err
 }
 
+func (m *mockWalletStorer) CreateWallet(w *Wallet) error {
+	m.methodToCall["CreateWallet"] = true
+	return m.err
+}
+
+func (m *mockWalletStorer) UpdateWallet(w *Wallet) error {
+	m.methodToCall["UpdateWallet"] = true
+	return m.err
+}
+
+func (m *mockWalletStorer) DeleteWallet(userID int) error {
+	m.methodToCall["DeleteWallet"] = true
+	return m.err
+}
+
 func (m *mockWalletStorer) ExpectToCall(methodName string) {
 	if m.methodToCall == nil {
 		m.methodToCall = make(map[string]bool)
