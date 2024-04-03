@@ -15,6 +15,7 @@ type mockWalletStorer struct {
 	wallets      []Wallet
 	err          error
 	methodToCall map[string]bool
+	whatIsFilter Wallet
 }
 
 func NewMockWalletStorer() *mockWalletStorer {
@@ -23,8 +24,9 @@ func NewMockWalletStorer() *mockWalletStorer {
 	}
 }
 
-func (m *mockWalletStorer) Wallets() ([]Wallet, error) {
+func (m *mockWalletStorer) Wallets(filter Wallet) ([]Wallet, error) {
 	m.methodToCall["Wallets"] = true
+	m.whatIsFilter = filter
 	return m.wallets, m.err
 }
 
@@ -98,6 +100,67 @@ func TestWallet(t *testing.T) {
 		// Assert
 		mock.Verify(t)
 		assert.NoError(t, err)
+		assert.Equal(t, http.StatusOK, resp.Code)
+		var got []Wallet
+		if err := json.Unmarshal(resp.Body.Bytes(), &got); err != nil {
+			t.Errorf("expected response body to be valid json, got %s", resp.Body.String())
+		}
+		assert.Equal(t, want, got)
+	})
+
+	t.Run("given user filter by available wallet types should return list of wallets", func(t *testing.T) {
+		// Arrange
+		resp, c, h, mock := testSetup(http.MethodGet, "/api/v1/wallets?wallet_type=Savings", nil)
+		expectedFilter := Wallet{
+			WalletType: WalletTypeSavings,
+		}
+		want := []Wallet{
+			{
+				ID:       1,
+				UserName: "user1",
+				Balance:  1000,
+			},
+			{
+				ID:       2,
+				UserName: "user2",
+				Balance:  2000,
+			},
+		}
+		mock.wallets = want
+		mock.ExpectToCall("Wallets")
+
+		// Act
+		err := h.WalletHandler(c)
+
+		// Assert
+		mock.Verify(t)
+		assert.NoError(t, err)
+		assert.Equal(t, expectedFilter, mock.whatIsFilter)
+		assert.Equal(t, http.StatusOK, resp.Code)
+		var got []Wallet
+		if err := json.Unmarshal(resp.Body.Bytes(), &got); err != nil {
+			t.Errorf("expected response body to be valid json, got %s", resp.Body.String())
+		}
+		assert.Equal(t, want, got)
+	})
+
+	t.Run("given user filter by unavailable wallet types should return empty list of wallet", func(t *testing.T) {
+		// Arrange
+		resp, c, h, mock := testSetup(http.MethodGet, "/api/v1/wallets?wallet_type=Unknown", nil)
+		expectedFilter := Wallet{
+			WalletType: "Unknown",
+		}
+		want := []Wallet{}
+		mock.wallets = want
+		mock.ExpectToCall("Wallets")
+
+		// Act
+		err := h.WalletHandler(c)
+
+		// Assert
+		mock.Verify(t)
+		assert.NoError(t, err)
+		assert.Equal(t, expectedFilter, mock.whatIsFilter)
 		assert.Equal(t, http.StatusOK, resp.Code)
 		var got []Wallet
 		if err := json.Unmarshal(resp.Body.Bytes(), &got); err != nil {

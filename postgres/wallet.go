@@ -1,7 +1,9 @@
 package postgres
 
 import (
-	"github.com/KKGo-Software-engineering/fun-exercise-api/wallet"
+	sq "github.com/Masterminds/squirrel"
+	"github.com/golfz/fun-exercise-api/wallet"
+	"log"
 	"time"
 )
 
@@ -15,8 +17,25 @@ type Wallet struct {
 	CreatedAt  time.Time `postgres:"created_at"`
 }
 
-func (p *Postgres) Wallets() ([]wallet.Wallet, error) {
-	rows, err := p.Db.Query("SELECT * FROM user_wallet")
+func (p *Postgres) Wallets(filter wallet.Wallet) ([]wallet.Wallet, error) {
+	psql := sq.StatementBuilder.PlaceholderFormat(sq.Dollar)
+	selectQuery := psql.Select("*").From("user_wallet")
+
+	// prepare filter
+	if filter.WalletType != "" {
+		if !wallet.IsWalletTypeValid(filter.WalletType) {
+			return []wallet.Wallet{}, nil
+		}
+		selectQuery = selectQuery.Where(sq.Eq{"wallet_type": filter.WalletType})
+	}
+
+	sql, args, err := selectQuery.ToSql()
+	log.Println(sql)
+	if err != nil {
+		return nil, err
+	}
+
+	rows, err := p.Db.Query(sql, args...)
 	if err != nil {
 		return nil, err
 	}
