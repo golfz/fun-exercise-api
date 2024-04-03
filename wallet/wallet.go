@@ -11,3 +11,15 @@ type Wallet struct {
 	Balance    float64   `json:"balance" example:"100.00"`
 	CreatedAt  time.Time `json:"created_at" example:"2024-03-25T14:19:00.729237Z"`
 }
+
+const (
+	WalletTypeSavings      = "Savings"
+	WalletTypeCreditCard   = "Credit Card"
+	WalletTypeCryptoWallet = "Crypto Wallet"
+)
+
+var AvailableWalletTypes = []string{
+	WalletTypeSavings,
+	WalletTypeCreditCard,
+	WalletTypeCryptoWallet,
+}

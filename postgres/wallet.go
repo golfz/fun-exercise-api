@@ -23,6 +23,9 @@ func (p *Postgres) Wallets(filter wallet.Wallet) ([]wallet.Wallet, error) {
 
 	// prepare filter
 	if filter.WalletType != "" {
+		if !wallet.IsWalletTypeValid(filter.WalletType) {
+			return []wallet.Wallet{}, nil
+		}
 		selectQuery = selectQuery.Where(sq.Eq{"wallet_type": filter.WalletType})
 	}
 
