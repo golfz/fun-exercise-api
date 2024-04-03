@@ -44,7 +44,7 @@ func (p *Postgres) Wallets(filter wallet.Wallet) ([]wallet.Wallet, error) {
 	}
 	defer rows.Close()
 
-	var wallets []wallet.Wallet
+	wallets := make([]wallet.Wallet, 0)
 	for rows.Next() {
 		var w Wallet
 		err := rows.Scan(&w.ID,
@@ -92,6 +92,56 @@ func (p *Postgres) CreateWallet(wallet *wallet.Wallet) error {
 	}
 
 	err = p.Db.QueryRow(sql, args...).Scan(&wallet.CreatedAt)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (p *Postgres) UpdateWallet(wallet *wallet.Wallet) error {
+	psql := sq.StatementBuilder.PlaceholderFormat(sq.Dollar)
+	updateQuery := psql.Update("user_wallet").
+		Set("balance", wallet.Balance).
+		Where(sq.Eq{"id": wallet.ID})
+
+	sql, args, err := updateQuery.ToSql()
+	if err != nil {
+		return err
+	}
+
+	_, err = p.Db.Exec(sql, args...)
+	if err != nil {
+		return err
+	}
+
+	selectQuery := psql.Select("id", "user_id", "user_name", "wallet_name", "wallet_type", "balance", "created_at").
+		From("user_wallet").
+		Where(sq.Eq{"id": wallet.ID})
+
+	sql, args, err = selectQuery.ToSql()
+	if err != nil {
+		return err
+	}
+
+	err = p.Db.QueryRow(sql, args...).Scan(&wallet.ID, &wallet.UserID, &wallet.UserName, &wallet.WalletName, &wallet.WalletType, &wallet.Balance, &wallet.CreatedAt)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (p *Postgres) DeleteWallet(userID int) error {
+	psql := sq.StatementBuilder.PlaceholderFormat(sq.Dollar)
+	deleteQuery := psql.Delete("user_wallet").Where(sq.Eq{"user_id": userID})
+
+	sql, args, err := deleteQuery.ToSql()
+	if err != nil {
+		return err
+	}
+
+	_, err = p.Db.Exec(sql, args...)
 	if err != nil {
 		return err
 	}

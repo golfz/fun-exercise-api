@@ -18,6 +18,8 @@ type Filter struct {
 type Storer interface {
 	Wallets(filter Wallet) ([]Wallet, error)
 	CreateWallet(wallet *Wallet) error
+	UpdateWallet(wallet *Wallet) error
+	DeleteWallet(userID int) error
 }
 
 func New(db Storer) *Handler {
@@ -65,7 +67,18 @@ func (h *Handler) CreateWalletHandler(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, Err{Message: err.Error()})
 	}
 	return c.JSON(http.StatusCreated, wallet)
+}
 
+func (h *Handler) UpdateWalletHandler(c echo.Context) error {
+	wallet := Wallet{}
+	if err := c.Bind(&wallet); err != nil {
+		return c.JSON(http.StatusBadRequest, Err{Message: err.Error()})
+	}
+
+	if err := h.store.UpdateWallet(&wallet); err != nil {
+		return c.JSON(http.StatusInternalServerError, Err{Message: err.Error()})
+	}
+	return c.JSON(http.StatusOK, wallet)
 }
 
 // UserWalletHandler
@@ -102,4 +115,19 @@ func (h *Handler) UserWalletHandler(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, Err{Message: err.Error()})
 	}
 	return c.JSON(http.StatusOK, wallets)
+}
+
+func (h *Handler) DeleteUserWalletHandler(c echo.Context) error {
+	id := c.Param("id")
+	if id == "" {
+		return c.JSON(http.StatusBadRequest, Err{Message: "id is required"})
+	}
+
+	if userID, err := strconv.Atoi(id); err == nil {
+		if err := h.store.DeleteWallet(userID); err != nil {
+			return c.JSON(http.StatusInternalServerError, Err{Message: err.Error()})
+		}
+	}
+	return c.NoContent(http.StatusNoContent)
+
 }
