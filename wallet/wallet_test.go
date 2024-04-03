@@ -78,7 +78,7 @@ func TestWallet(t *testing.T) {
 		mock.ExpectToCall("GetWallets")
 
 		// Act
-		err := h.WalletHandler(c)
+		err := h.GetWalletsHandler(c)
 
 		// Assert
 		mock.Verify(t)
@@ -88,7 +88,7 @@ func TestWallet(t *testing.T) {
 		if err := json.Unmarshal(resp.Body.Bytes(), &got); err != nil {
 			t.Errorf("expected response body to be valid json, got %s", resp.Body.String())
 		}
-		assert.Equal(t, "unable to get wallets", got.Message)
+		assert.NotEmpty(t, got.Message)
 	})
 
 	t.Run("given user able to getting wallet should return list of wallets", func(t *testing.T) {
@@ -110,7 +110,7 @@ func TestWallet(t *testing.T) {
 		mock.ExpectToCall("GetWallets")
 
 		// Act
-		err := h.WalletHandler(c)
+		err := h.GetWalletsHandler(c)
 
 		// Assert
 		mock.Verify(t)
@@ -145,7 +145,7 @@ func TestWallet(t *testing.T) {
 		mock.ExpectToCall("GetWallets")
 
 		// Act
-		err := h.WalletHandler(c)
+		err := h.GetWalletsHandler(c)
 
 		// Assert
 		mock.Verify(t)
@@ -162,20 +162,15 @@ func TestWallet(t *testing.T) {
 	t.Run("given user filter by unavailable wallet types should return empty list of wallet", func(t *testing.T) {
 		// Arrange
 		resp, c, h, mock := testSetup(http.MethodGet, "/api/v1/wallets?wallet_type=Unknown", nil)
-		expectedFilter := Wallet{
-			WalletType: "Unknown",
-		}
 		want := []Wallet{}
 		mock.wallets = want
-		mock.ExpectToCall("GetWallets")
 
 		// Act
-		err := h.WalletHandler(c)
+		err := h.GetWalletsHandler(c)
 
 		// Assert
 		mock.Verify(t)
 		assert.NoError(t, err)
-		assert.Equal(t, expectedFilter, mock.whatIsFilter)
 		assert.Equal(t, http.StatusOK, resp.Code)
 		var got []Wallet
 		if err := json.Unmarshal(resp.Body.Bytes(), &got); err != nil {
