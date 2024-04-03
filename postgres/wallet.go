@@ -1,30 +1,70 @@
 package postgres
 
 import (
+	"database/sql"
+	"errors"
 	sq "github.com/Masterminds/squirrel"
 	"github.com/golfz/fun-exercise-api/wallet"
 	"log"
-	"time"
 )
 
-type Wallet struct {
-	ID         int       `postgres:"id"`
-	UserID     int       `postgres:"user_id"`
-	UserName   string    `postgres:"user_name"`
-	WalletName string    `postgres:"wallet_name"`
-	WalletType string    `postgres:"wallet_type"`
-	Balance    float64   `postgres:"balance"`
-	CreatedAt  time.Time `postgres:"created_at"`
+// type Wallet struct {
+//	ID         int       `postgres:"id"`
+//	UserID     int       `postgres:"user_id"`
+//	UserName   string    `postgres:"user_name"`
+//	WalletName string    `postgres:"wallet_name"`
+//	WalletType string    `postgres:"wallet_type"`
+//	Balance    float64   `postgres:"balance"`
+//	CreatedAt  time.Time `postgres:"created_at"`
+//}
+
+var (
+	ErrInvalidWalletType = errors.New("invalid wallet type")
+	ErrDeleteWallet      = errors.New("unable to delete wallet")
+)
+
+func scanWalletFromRow(row *sql.Row) (wallet.Wallet, error) {
+	var w wallet.Wallet
+	err := row.Scan(&w.ID, &w.UserID, &w.UserName, &w.WalletName, &w.WalletType, &w.Balance, &w.CreatedAt)
+	if err != nil {
+		return wallet.Wallet{}, err
+	}
+	return w, nil
 }
 
-func (p *Postgres) Wallets(filter wallet.Wallet) ([]wallet.Wallet, error) {
+func scanWalletsFromRows(rows *sql.Rows) ([]wallet.Wallet, error) {
+	wallets := make([]wallet.Wallet, 0)
+	for rows.Next() {
+		var w wallet.Wallet
+		err := rows.Scan(&w.ID, &w.UserID, &w.UserName, &w.WalletName, &w.WalletType, &w.Balance, &w.CreatedAt)
+		if err != nil {
+			return nil, err
+		}
+		wallets = append(wallets, w)
+
+	}
+	return wallets, nil
+}
+
+func (p *Postgres) getWalletByID(id int) (wallet.Wallet, error) {
+	selectSql := `
+		SELECT id, user_id, user_name, wallet_name, wallet_type, balance, created_at 
+		FROM user_wallet 
+		WHERE id = $1`
+	row := p.Db.QueryRow(selectSql, id)
+
+	return scanWalletFromRow(row)
+}
+
+func prepareSelectSqlWithFilter(filter wallet.Wallet) (string, []interface{}, error) {
 	psql := sq.StatementBuilder.PlaceholderFormat(sq.Dollar)
-	selectQuery := psql.Select("*").From("user_wallet")
+	selectQuery := psql.Select("id, user_id, user_name, wallet_name, wallet_type, balance, created_at").
+		From("user_wallet")
 
 	// prepare filter
 	if filter.WalletType != "" {
 		if !wallet.IsWalletTypeValid(filter.WalletType) {
-			return []wallet.Wallet{}, nil
+			return "", nil, ErrInvalidWalletType
 		}
 		selectQuery = selectQuery.Where(sq.Eq{"wallet_type": filter.WalletType})
 	}
@@ -32,66 +72,40 @@ func (p *Postgres) Wallets(filter wallet.Wallet) ([]wallet.Wallet, error) {
 		selectQuery = selectQuery.Where(sq.Eq{"user_id": filter.UserID})
 	}
 
-	sql, args, err := selectQuery.ToSql()
-	log.Println(sql)
+	selectQuery = selectQuery.OrderBy("id ASC")
+
+	return selectQuery.ToSql()
+}
+
+func (p *Postgres) GetWallets(filter wallet.Wallet) ([]wallet.Wallet, error) {
+	selectSql, args, err := prepareSelectSqlWithFilter(filter)
+	log.Println(selectSql)
 	if err != nil {
 		return nil, err
 	}
 
-	rows, err := p.Db.Query(sql, args...)
+	rows, err := p.Db.Query(selectSql, args...)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
-	wallets := make([]wallet.Wallet, 0)
-	for rows.Next() {
-		var w Wallet
-		err := rows.Scan(&w.ID,
-			&w.UserID, &w.UserName,
-			&w.WalletName, &w.WalletType,
-			&w.Balance, &w.CreatedAt,
-		)
-		if err != nil {
-			return nil, err
-		}
-		wallets = append(wallets, wallet.Wallet{
-			ID:         w.ID,
-			UserID:     w.UserID,
-			UserName:   w.UserName,
-			WalletName: w.WalletName,
-			WalletType: w.WalletType,
-			Balance:    w.Balance,
-			CreatedAt:  w.CreatedAt,
-		})
-	}
-	return wallets, nil
+	return scanWalletsFromRows(rows)
 }
 
 func (p *Postgres) CreateWallet(wallet *wallet.Wallet) error {
-	psql := sq.StatementBuilder.PlaceholderFormat(sq.Dollar)
-	insertQuery := psql.Insert("user_wallet").
-		Columns("user_id", "user_name", "wallet_name", "wallet_type", "balance").
-		Values(wallet.UserID, wallet.UserName, wallet.WalletName, wallet.WalletType, wallet.Balance).
-		Suffix("RETURNING id")
+	insertSql := `
+		INSERT INTO user_wallet (user_id, user_name, wallet_name, wallet_type, balance)
+		VALUES ($1, $2, $3, $4, $5)
+		RETURNING id`
+	args := []interface{}{wallet.UserID, wallet.UserName, wallet.WalletName, wallet.WalletType, wallet.Balance}
 
-	sql, args, err := insertQuery.ToSql()
+	err := p.Db.QueryRow(insertSql, args...).Scan(&wallet.ID)
 	if err != nil {
 		return err
 	}
 
-	err = p.Db.QueryRow(sql, args...).Scan(&wallet.ID)
-	if err != nil {
-		return err
-	}
-
-	selectSQL := psql.Select("created_at").From("user_wallet").Where(sq.Eq{"id": wallet.ID})
-	sql, args, err = selectSQL.ToSql()
-	if err != nil {
-		return err
-	}
-
-	err = p.Db.QueryRow(sql, args...).Scan(&wallet.CreatedAt)
+	*wallet, err = p.getWalletByID(wallet.ID)
 	if err != nil {
 		return err
 	}
@@ -100,31 +114,14 @@ func (p *Postgres) CreateWallet(wallet *wallet.Wallet) error {
 }
 
 func (p *Postgres) UpdateWallet(wallet *wallet.Wallet) error {
-	psql := sq.StatementBuilder.PlaceholderFormat(sq.Dollar)
-	updateQuery := psql.Update("user_wallet").
-		Set("balance", wallet.Balance).
-		Where(sq.Eq{"id": wallet.ID})
+	updateSql := `UPDATE user_wallet SET balance = $1 WHERE id = $2`
 
-	sql, args, err := updateQuery.ToSql()
+	_, err := p.Db.Exec(updateSql, wallet.Balance, wallet.ID)
 	if err != nil {
 		return err
 	}
 
-	_, err = p.Db.Exec(sql, args...)
-	if err != nil {
-		return err
-	}
-
-	selectQuery := psql.Select("id", "user_id", "user_name", "wallet_name", "wallet_type", "balance", "created_at").
-		From("user_wallet").
-		Where(sq.Eq{"id": wallet.ID})
-
-	sql, args, err = selectQuery.ToSql()
-	if err != nil {
-		return err
-	}
-
-	err = p.Db.QueryRow(sql, args...).Scan(&wallet.ID, &wallet.UserID, &wallet.UserName, &wallet.WalletName, &wallet.WalletType, &wallet.Balance, &wallet.CreatedAt)
+	*wallet, err = p.getWalletByID(wallet.ID)
 	if err != nil {
 		return err
 	}
@@ -133,15 +130,9 @@ func (p *Postgres) UpdateWallet(wallet *wallet.Wallet) error {
 }
 
 func (p *Postgres) DeleteWallet(userID int) error {
-	psql := sq.StatementBuilder.PlaceholderFormat(sq.Dollar)
-	deleteQuery := psql.Delete("user_wallet").Where(sq.Eq{"user_id": userID})
+	deleteSql := `DELETE FROM user_wallet WHERE user_id = $1`
 
-	sql, args, err := deleteQuery.ToSql()
-	if err != nil {
-		return err
-	}
-
-	_, err = p.Db.Exec(sql, args...)
+	_, err := p.Db.Exec(deleteSql, userID)
 	if err != nil {
 		return err
 	}

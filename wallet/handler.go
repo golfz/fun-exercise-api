@@ -16,7 +16,7 @@ type Filter struct {
 }
 
 type Storer interface {
-	Wallets(filter Wallet) ([]Wallet, error)
+	GetWallets(filter Wallet) ([]Wallet, error)
 	CreateWallet(wallet *Wallet) error
 	UpdateWallet(wallet *Wallet) error
 	DeleteWallet(userID int) error
@@ -50,7 +50,7 @@ func (h *Handler) WalletHandler(c echo.Context) error {
 		log.Printf("filter by wallet_type=%s\n", walletType)
 	}
 
-	wallets, err := h.store.Wallets(filter)
+	wallets, err := h.store.GetWallets(filter)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, Err{Message: err.Error()})
 	}
@@ -110,7 +110,7 @@ func (h *Handler) UserWalletHandler(c echo.Context) error {
 		log.Printf("filter by wallet_type=%s\n", walletType)
 	}
 
-	wallets, err := h.store.Wallets(filter)
+	wallets, err := h.store.GetWallets(filter)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, Err{Message: err.Error()})
 	}

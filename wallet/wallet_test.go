@@ -24,8 +24,8 @@ func NewMockWalletStorer() *mockWalletStorer {
 	}
 }
 
-func (m *mockWalletStorer) Wallets(filter Wallet) ([]Wallet, error) {
-	m.methodToCall["Wallets"] = true
+func (m *mockWalletStorer) GetWallets(filter Wallet) ([]Wallet, error) {
+	m.methodToCall["GetWallets"] = true
 	m.whatIsFilter = filter
 	return m.wallets, m.err
 }
@@ -75,7 +75,7 @@ func TestWallet(t *testing.T) {
 		// Arrange
 		resp, c, h, mock := testSetup(http.MethodGet, "/api/v1/wallets", nil)
 		mock.err = errors.New("unable to get wallets")
-		mock.ExpectToCall("Wallets")
+		mock.ExpectToCall("GetWallets")
 
 		// Act
 		err := h.WalletHandler(c)
@@ -107,7 +107,7 @@ func TestWallet(t *testing.T) {
 			},
 		}
 		mock.wallets = want
-		mock.ExpectToCall("Wallets")
+		mock.ExpectToCall("GetWallets")
 
 		// Act
 		err := h.WalletHandler(c)
@@ -142,7 +142,7 @@ func TestWallet(t *testing.T) {
 			},
 		}
 		mock.wallets = want
-		mock.ExpectToCall("Wallets")
+		mock.ExpectToCall("GetWallets")
 
 		// Act
 		err := h.WalletHandler(c)
@@ -167,7 +167,7 @@ func TestWallet(t *testing.T) {
 		}
 		want := []Wallet{}
 		mock.wallets = want
-		mock.ExpectToCall("Wallets")
+		mock.ExpectToCall("GetWallets")
 
 		// Act
 		err := h.WalletHandler(c)
