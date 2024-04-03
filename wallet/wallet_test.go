@@ -1,12 +1,15 @@
+//go:build unit
+
 package wallet
 
 import (
 	"encoding/json"
 	"errors"
 	"github.com/labstack/echo/v4"
+	"github.com/stretchr/testify/assert"
+	"io"
 	"net/http"
 	"net/http/httptest"
-	"reflect"
 	"testing"
 )
 
@@ -14,6 +17,12 @@ type mockWalletStorer struct {
 	wallets      []Wallet
 	err          error
 	methodToCall map[string]bool
+}
+
+func NewMockWalletStorer() *mockWalletStorer {
+	return &mockWalletStorer{
+		methodToCall: make(map[string]bool),
+	}
 }
 
 func (m *mockWalletStorer) Wallets() ([]Wallet, error) {
@@ -36,39 +45,40 @@ func (m *mockWalletStorer) Verify(t *testing.T) {
 	}
 }
 
+func testSetup(method, url string, body io.Reader) (*httptest.ResponseRecorder, echo.Context, *Handler, *mockWalletStorer) {
+	req := httptest.NewRequest(method, url, body)
+	rec := httptest.NewRecorder()
+	c := echo.New().NewContext(req, rec)
+	mock := NewMockWalletStorer()
+	h := New(mock)
+
+	return rec, c, h, mock
+}
+
 func TestWallet(t *testing.T) {
 	t.Run("given unable to get wallets should return 500 and error message", func(t *testing.T) {
 		// Arrange
-		req := httptest.NewRequest(http.MethodGet, "/api/v1/wallets", nil)
-		rec := httptest.NewRecorder()
-		c := echo.New().NewContext(req, rec)
-		mock := &mockWalletStorer{
-			err: errors.New("unable to get wallets"),
-		}
+		rec, c, h, mock := testSetup(http.MethodGet, "/api/v1/wallets", nil)
+		mock.err = errors.New("unable to get wallets")
 		mock.ExpectToCall("Wallets")
-		h := New(mock)
 
 		// Act
 		err := h.WalletHandler(c)
 
 		// Assert
 		mock.Verify(t)
-		if err != nil {
-			t.Errorf("expected err to be nil, got %s", err)
+		assert.NoError(t, err)
+		assert.Equal(t, http.StatusInternalServerError, rec.Code)
+		var got Err
+		if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+			t.Errorf("expected response body to be valid json, got %s", rec.Body.String())
 		}
-		if rec.Code != http.StatusInternalServerError {
-			t.Errorf("expected status code to be 500, got %d", rec.Code)
-		}
-		if len(rec.Body.String()) == 0 {
-			t.Errorf("expected response body to be not empty")
-		}
+		assert.Equal(t, "unable to get wallets", got.Message)
 	})
 
 	t.Run("given user able to getting wallet should return list of wallets", func(t *testing.T) {
 		// Arrange
-		req := httptest.NewRequest(http.MethodGet, "/api/v1/wallets", nil)
-		rec := httptest.NewRecorder()
-		c := echo.New().NewContext(req, rec)
+		rec, c, h, mock := testSetup(http.MethodGet, "/api/v1/wallets", nil)
 		want := []Wallet{
 			{
 				ID:       1,
@@ -81,29 +91,21 @@ func TestWallet(t *testing.T) {
 				Balance:  2000,
 			},
 		}
-		mock := &mockWalletStorer{
-			wallets: want,
-		}
+		mock.wallets = want
 		mock.ExpectToCall("Wallets")
-		h := New(mock)
 
 		// Act
 		err := h.WalletHandler(c)
 
 		// Assert
 		mock.Verify(t)
-		if err != nil {
-			t.Errorf("expected err to be nil, got %s", err)
-		}
-		if rec.Code != http.StatusOK {
-			t.Errorf("expected status code to be 200, got %d", rec.Code)
-		}
+		assert.NoError(t, err)
+		assert.Equal(t, http.StatusOK, rec.Code)
 		var got []Wallet
 		if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
 			t.Errorf("expected response body to be valid json, got %s", rec.Body.String())
 		}
-		if !reflect.DeepEqual(want, got) {
-			t.Errorf("expected response body to be %v, got %v", want, got)
-		}
+		assert.Equal(t, want, got)
 	})
+
 }
