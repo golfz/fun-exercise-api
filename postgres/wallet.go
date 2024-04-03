@@ -28,6 +28,9 @@ func (p *Postgres) Wallets(filter wallet.Wallet) ([]wallet.Wallet, error) {
 		}
 		selectQuery = selectQuery.Where(sq.Eq{"wallet_type": filter.WalletType})
 	}
+	if filter.UserID != 0 {
+		selectQuery = selectQuery.Where(sq.Eq{"user_id": filter.UserID})
+	}
 
 	sql, args, err := selectQuery.ToSql()
 	log.Println(sql)
