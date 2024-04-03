@@ -22,6 +22,13 @@ func main() {
 	e := echo.New()
 	e.GET("/swagger/*", echoSwagger.WrapHandler)
 	handler := wallet.New(p)
-	e.GET("/api/v1/wallets", handler.WalletHandler)
+
+	g := e.Group("/api/v1")
+	g.GET("/wallets", handler.WalletHandler)
+	g.POST("/wallets", handler.CreateWalletHandler)
+	g.PUT("/wallets", handler.UpdateWalletHandler)
+	g.GET("/users/:id/wallets", handler.UserWalletHandler)
+	g.DELETE("/users/:id/wallets", handler.DeleteUserWalletHandler)
+
 	e.Logger.Fatal(e.Start(":1323"))
 }
