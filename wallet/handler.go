@@ -17,6 +17,7 @@ type Filter struct {
 
 type Storer interface {
 	Wallets(filter Wallet) ([]Wallet, error)
+	CreateWallet(wallet *Wallet) error
 }
 
 func New(db Storer) *Handler {
@@ -52,6 +53,19 @@ func (h *Handler) WalletHandler(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, Err{Message: err.Error()})
 	}
 	return c.JSON(http.StatusOK, wallets)
+}
+
+func (h *Handler) CreateWalletHandler(c echo.Context) error {
+	wallet := Wallet{}
+	if err := c.Bind(&wallet); err != nil {
+		return c.JSON(http.StatusBadRequest, Err{Message: err.Error()})
+	}
+
+	if err := h.store.CreateWallet(&wallet); err != nil {
+		return c.JSON(http.StatusInternalServerError, Err{Message: err.Error()})
+	}
+	return c.JSON(http.StatusCreated, wallet)
+
 }
 
 // UserWalletHandler

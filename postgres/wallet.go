@@ -67,3 +67,34 @@ func (p *Postgres) Wallets(filter wallet.Wallet) ([]wallet.Wallet, error) {
 	}
 	return wallets, nil
 }
+
+func (p *Postgres) CreateWallet(wallet *wallet.Wallet) error {
+	psql := sq.StatementBuilder.PlaceholderFormat(sq.Dollar)
+	insertQuery := psql.Insert("user_wallet").
+		Columns("user_id", "user_name", "wallet_name", "wallet_type", "balance").
+		Values(wallet.UserID, wallet.UserName, wallet.WalletName, wallet.WalletType, wallet.Balance).
+		Suffix("RETURNING id")
+
+	sql, args, err := insertQuery.ToSql()
+	if err != nil {
+		return err
+	}
+
+	err = p.Db.QueryRow(sql, args...).Scan(&wallet.ID)
+	if err != nil {
+		return err
+	}
+
+	selectSQL := psql.Select("created_at").From("user_wallet").Where(sq.Eq{"id": wallet.ID})
+	sql, args, err = selectSQL.ToSql()
+	if err != nil {
+		return err
+	}
+
+	err = p.Db.QueryRow(sql, args...).Scan(&wallet.CreatedAt)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}

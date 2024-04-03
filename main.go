@@ -25,6 +25,7 @@ func main() {
 
 	g := e.Group("/api/v1")
 	g.GET("/wallets", handler.WalletHandler)
+	g.POST("/wallets", handler.CreateWalletHandler)
 	g.GET("/users/:id/wallets", handler.UserWalletHandler)
 
 	e.Logger.Fatal(e.Start(":1323"))
