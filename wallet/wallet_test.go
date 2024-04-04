@@ -190,6 +190,7 @@ func TestGetUserWallet(t *testing.T) {
 		c.SetPath("/api/v1/users/:id/wallets")
 		c.SetParamNames("id")
 		c.SetParamValues("")
+		// see: https://echo.labstack.com/docs/testing#getuser
 
 		// Act
 		err := h.GetUserWalletHandler(c)
