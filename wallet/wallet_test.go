@@ -6,6 +6,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/assert"
 	"io"
+	"log"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -70,7 +71,7 @@ func testSetup(method, url string, body io.Reader) (*httptest.ResponseRecorder, 
 	return rec, c, h, mock
 }
 
-func TestWallet(t *testing.T) {
+func TestGetWallets(t *testing.T) {
 	t.Run("given unable to get wallets should return 500 and error message", func(t *testing.T) {
 		// Arrange
 		resp, c, h, mock := testSetup(http.MethodGet, "/api/v1/wallets", nil)
@@ -94,6 +95,7 @@ func TestWallet(t *testing.T) {
 	t.Run("given user able to getting wallet should return list of wallets", func(t *testing.T) {
 		// Arrange
 		resp, c, h, mock := testSetup(http.MethodGet, "/api/v1/wallets", nil)
+		log.Printf("c: %#v\n", c)
 		want := []Wallet{
 			{
 				ID:       1,
@@ -123,7 +125,7 @@ func TestWallet(t *testing.T) {
 		assert.Equal(t, want, got)
 	})
 
-	t.Run("given user filter by available wallet types should return list of wallets", func(t *testing.T) {
+	t.Run("given user filter by available wallet_types should return list of wallets", func(t *testing.T) {
 		// Arrange
 		resp, c, h, mock := testSetup(http.MethodGet, "/api/v1/wallets?wallet_type=Savings", nil)
 		expectedFilter := Wallet{
@@ -159,7 +161,7 @@ func TestWallet(t *testing.T) {
 		assert.Equal(t, want, got)
 	})
 
-	t.Run("given user filter by unavailable wallet types should return empty list of wallet", func(t *testing.T) {
+	t.Run("given user filter by unavailable wallet_types should return empty list of wallet", func(t *testing.T) {
 		// Arrange
 		resp, c, h, mock := testSetup(http.MethodGet, "/api/v1/wallets?wallet_type=Unknown", nil)
 		want := []Wallet{}
@@ -181,12 +183,110 @@ func TestWallet(t *testing.T) {
 
 }
 
-func TestUserWallet(t *testing.T) {
-	t.Run("given unable to get wallets should return 500 and error message", func(t *testing.T) {
+func TestGetUserWallet(t *testing.T) {
+	t.Run("given no user_id in path param should return 400 and error message", func(t *testing.T) {
+		// Arrange
+		resp, c, h, _ := testSetup(http.MethodGet, "/", nil)
+		c.SetPath("/api/v1/users/:id/wallets")
+		c.SetParamNames("id")
+		c.SetParamValues("")
 
+		// Act
+		err := h.GetUserWalletHandler(c)
+
+		// Assert
+		assert.NoError(t, err)
+		assert.Equal(t, http.StatusBadRequest, resp.Code)
+		var got Err
+		if err := json.Unmarshal(resp.Body.Bytes(), &got); err != nil {
+			t.Errorf("expected response body to be valid json, got %s", resp.Body.String())
+		}
+		assert.NotEmpty(t, got.Message)
 	})
 
-	t.Run("given user able to getting wallet should return list of wallets", func(t *testing.T) {
+	t.Run("given user_id is not number should return 400 and error message", func(t *testing.T) {
+		// Arrange
+		resp, c, h, _ := testSetup(http.MethodGet, "/", nil)
+		c.SetPath("/api/v1/users/:id/wallets")
+		c.SetParamNames("id")
+		c.SetParamValues("abc")
 
+		// Act
+		err := h.GetUserWalletHandler(c)
+
+		// Assert
+		assert.NoError(t, err)
+		assert.Equal(t, http.StatusBadRequest, resp.Code)
+		var got Err
+		if err := json.Unmarshal(resp.Body.Bytes(), &got); err != nil {
+			t.Errorf("expected response body to be valid json, got %s", resp.Body.String())
+		}
+		assert.NotEmpty(t, got.Message)
+	})
+
+	t.Run("given error should return 500 and error message", func(t *testing.T) {
+		// Arrange
+		resp, c, h, mock := testSetup(http.MethodGet, "/", nil)
+		c.SetPath("/api/v1/users/:id/wallets")
+		c.SetParamNames("id")
+		c.SetParamValues("999")
+		mock.err = errors.New("unable to get wallets")
+		mock.ExpectToCall("GetWallets")
+		expectedFilter := Wallet{
+			UserID: 999,
+		}
+
+		// Act
+		err := h.GetUserWalletHandler(c)
+
+		// Assert
+		mock.Verify(t)
+		assert.Equal(t, expectedFilter, mock.whatIsFilter)
+		assert.NoError(t, err)
+		assert.Equal(t, http.StatusInternalServerError, resp.Code)
+		var got Err
+		if err := json.Unmarshal(resp.Body.Bytes(), &got); err != nil {
+			t.Errorf("expected response body to be valid json, got %s", resp.Body.String())
+		}
+		assert.NotEmpty(t, got.Message)
+	})
+
+	t.Run("given no error should return 200 and []wallets", func(t *testing.T) {
+		// Arrange
+		resp, c, h, mock := testSetup(http.MethodGet, "/", nil)
+		c.SetPath("/api/v1/users/:id/wallets")
+		c.SetParamNames("id")
+		c.SetParamValues("1")
+		mock.ExpectToCall("GetWallets")
+		expectedFilter := Wallet{
+			UserID: 1,
+		}
+		expectedWallets := []Wallet{
+			{
+				ID:       1,
+				UserName: "user1",
+				Balance:  1000,
+			},
+			{
+				ID:       2,
+				UserName: "user2",
+				Balance:  2000,
+			},
+		}
+		mock.wallets = expectedWallets
+
+		// Act
+		err := h.GetUserWalletHandler(c)
+
+		// Assert
+		mock.Verify(t)
+		assert.Equal(t, expectedFilter, mock.whatIsFilter)
+		assert.NoError(t, err)
+		assert.Equal(t, http.StatusOK, resp.Code)
+		var got []Wallet
+		if err := json.Unmarshal(resp.Body.Bytes(), &got); err != nil {
+			t.Errorf("expected response body to be valid json, got %s", resp.Body.String())
+		}
+		assert.Equal(t, expectedWallets, got)
 	})
 }
