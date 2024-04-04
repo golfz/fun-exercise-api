@@ -136,7 +136,7 @@ func (h *Handler) GetUserWalletHandler(c echo.Context) error {
 	// prepare filter: user_id
 	var userID int
 	var err error
-	strUserID := c.Param("id")
+	strUserID := c.Param("id") // ⚠️ I found a problem here in the unit test.
 	if strUserID == "" {
 		log.Printf("error: user_id is ''\n")
 		return c.JSON(http.StatusBadRequest, Err{Message: "user_id is required"})
