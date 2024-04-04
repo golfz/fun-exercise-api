@@ -35,7 +35,6 @@ type Err struct {
 //		@Summary		Get all wallets
 //		@Description	Get all wallets
 //		@Tags			wallet
-//		@Accept			json
 //		@Produce		json
 //	    @Param			wallet_type     query       string false "Filter by wallet type"
 //		@Success		200	            {array}	    Wallet

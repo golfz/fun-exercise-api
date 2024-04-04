@@ -125,7 +125,7 @@ func TestGetWallets(t *testing.T) {
 		assert.Equal(t, want, got)
 	})
 
-	t.Run("given user filter by available wallet_types should return list of wallets", func(t *testing.T) {
+	t.Run("given user filter by available wallet_types should return 200 and list of wallets", func(t *testing.T) {
 		// Arrange
 		resp, c, h, mock := testSetup(http.MethodGet, "/api/v1/wallets?wallet_type=Savings", nil)
 		expectedFilter := Wallet{
@@ -161,7 +161,7 @@ func TestGetWallets(t *testing.T) {
 		assert.Equal(t, want, got)
 	})
 
-	t.Run("given user filter by unavailable wallet_types should return empty list of wallet", func(t *testing.T) {
+	t.Run("given user filter by unavailable wallet_types should return 200 and empty list of wallet", func(t *testing.T) {
 		// Arrange
 		resp, c, h, mock := testSetup(http.MethodGet, "/api/v1/wallets?wallet_type=Unknown", nil)
 		want := []Wallet{}
