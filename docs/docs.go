@@ -56,9 +56,6 @@ const docTemplate = `{
         "/api/v1/users/{id}/wallets": {
             "get": {
                 "description": "Get all wallets for the user",
-                "consumes": [
-                    "application/json"
-                ],
                 "produces": [
                     "application/json"
                 ],
@@ -103,9 +100,6 @@ const docTemplate = `{
         "/api/v1/wallets": {
             "get": {
                 "description": "Get all wallets",
-                "consumes": [
-                    "application/json"
-                ],
                 "produces": [
                     "application/json"
                 ],

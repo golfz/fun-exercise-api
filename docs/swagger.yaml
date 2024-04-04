@@ -89,8 +89,6 @@ paths:
       - user wallet
   /api/v1/users/{id}/wallets:
     get:
-      consumes:
-      - application/json
       description: Get all wallets for the user
       parameters:
       - description: User ID
@@ -120,8 +118,6 @@ paths:
       - user wallet
   /api/v1/wallets:
     get:
-      consumes:
-      - application/json
       description: Get all wallets
       parameters:
       - description: Filter by wallet type

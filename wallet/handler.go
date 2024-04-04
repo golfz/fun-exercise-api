@@ -124,7 +124,6 @@ func (h *Handler) UpdateWalletHandler(c echo.Context) error {
 // @Summary		Get all wallets for the user
 // @Description	Get all wallets for the user
 // @Tags		user wallet
-// @Accept		json
 // @Produce		json
 // @Param		id      path        int true "User ID"
 // @Success		200     {array}	    Wallet
